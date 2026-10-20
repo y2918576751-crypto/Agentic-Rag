@@ -20,6 +20,19 @@
 | 预测格式 | 每题 6 字段 JSONL，完整机器可读轨迹及真实 API usage |
 | 评估 | normalized exact match、总工具数、总 API tokens；支持消融实验 |
 
+### Agent 可调用工具
+
+系统向 Agent 暴露 4 种工具：恰好 1 种统一检索工具，以及 3 种辅助工具。Agent 根据每轮问题、检索结果和技能目录生成工具动作；轨迹记录每次调用的参数、结果和错误。
+
+| 工具 | 输入 | 输出与用途 |
+|---|---|---|
+| `retrieve` | `query`、`top_k`、`method` | 按分数返回文档/分块 ID、片段、来源 URL、偏移和各检索器排名。`method` 可选 hybrid 或已启用类别；BM25、E5、Qwen 在内部融合，Agent 不会拿到多个检索工具。 |
+| `open_document` | `doc_id`、可选 `start`、`length` | 返回指定文档的有界正文、来源 URL 和字符范围，用于核对候选文档。 |
+| `find_in_document` | `doc_id`、`term` | 返回文档中至多 8 个匹配片段和来源位置，用于查找姓名、日期或关键短语。 |
+| `load_skill` | 技能 `name` | 按需读取对应 `SKILL.md`。Agent 先看到技能名称和描述，再自行决定加载哪个技能或不加载。 |
+
+技能选择记录在 Agent 决策和最终 `selected_skills` 字段中；可用不同问题的运行轨迹展示多线索问题与检索失败分别触发不同技能。
+
 默认 `config.json` 启用三类检索。`configs/sparse.json` 是明确的轻量配置，只使用一类，不声称获得三类检索分数。没有向量索引时完整配置会报错，不会偷偷退回 BM25。
 
 ## 环境

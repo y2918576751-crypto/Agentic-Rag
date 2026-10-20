@@ -130,6 +130,20 @@ class SystemTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_record(row, course=True)
 
+    def test_skill_catalog_is_available_without_preloading_and_selected_skill_is_traced(self):
+        a = self.agent([{"action": "load_skill", "args": {"name": "search-recovery"}},
+                        self.retrieve("Lantern Archive"), self.final(), {"supported": True, "issues": []}])
+        row = a.run("Search results are ambiguous; who founded Lantern Archive?", "q-recovery")
+        first_prompt = a.client.requests[0][0]["content"]
+        first_view = json.loads(a.client.requests[0][1]["content"])
+        self.assertIn("open_document(doc_id:string", first_prompt)
+        self.assertIn("find_in_document(doc_id:string", first_prompt)
+        self.assertIn("load_skill(name:string)", first_prompt)
+        self.assertEqual({skill["name"] for skill in first_view["skills"]},
+                         {"multi-clue-search", "search-recovery"})
+        self.assertTrue(all("instructions" not in skill for skill in first_view["skills"]))
+        self.assertEqual(row["trajectory"][-1]["selected_skills"], ["search-recovery"])
+
     def test_verification_failure_triggers_further_search(self):
         a = self.agent([self.retrieve(), self.final(), {"supported": False, "issues": ["Award not checked"]},
                         self.retrieve("Silver Quill Award"), self.final(["e1", "e2"]), {"supported": True}])
