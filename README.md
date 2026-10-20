@@ -52,10 +52,12 @@ LLM_API_KEY=你的密钥
 LLM_BASE_URL=课程认可服务商的 OpenAI-compatible v1 地址
 LLM_MODEL=该服务商实际提供的 DeepSeek-V4-Flash 模型 ID
 LLM_TIMEOUT=120
+LLM_THINKING=disabled
 ```
 
 课程规定主模型是 DeepSeek-V4-Flash；不同服务商的模型 ID/别名可能不同。不要把其他模型填进去后声称符合要求。模型 ID 故意不预填，避免猜测错误。
 接口使用 Chat Completions、`response_format=json_object`，并要求每次返回 `usage.total_tokens`。确认所选服务商支持这些功能。若需要接口适配，改 `agentsearch/llm.py`，必须保留实际用量统计。
+DeepSeek 默认启用思考模式；在当前单次输出预算下，建议设置 `LLM_THINKING=disabled`，确保 JSON action 有输出空间。其他不支持此参数的服务商可留空。若 API 输出被截断或为空，程序会停止并保留实际用量，避免反复请求空响应。
 运行轨迹中记录返回的 model、请求 messages 和 usage，不保存 Authorization/API Key。
 
 ## 数据格式

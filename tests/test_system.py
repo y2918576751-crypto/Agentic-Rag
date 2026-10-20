@@ -207,6 +207,18 @@ class SystemTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_file(output, file, expected_count=1, course=True)
 
+    def test_resume_rejects_changed_thinking_mode(self):
+        file = self.root / "questions.jsonl"
+        file.write_text(json.dumps({"id": "q1", "question": "Who founded Lantern Archive?"}), encoding="utf-8")
+        output = self.root / "pred.jsonl"
+        a = self.agent([self.retrieve(), self.final(), {"supported": True}])
+        a.client.thinking = "disabled"
+        run_batch(a, file, output, expected_count=1)
+        output.rename(Path(str(output) + ".partial"))
+        a.client.thinking = "enabled"
+        with self.assertRaisesRegex(ValueError, "thinking mode mismatch"):
+            run_batch(a, file, output, resume=True, expected_count=1)
+
     def test_normalized_em_is_exact_not_keyword_hit_rate(self):
         self.assertEqual(normalize_answer("The Mira, Vale!"), "mira vale")
         self.assertNotEqual(normalize_answer("It is Mira Vale"), normalize_answer("Mira Vale"))
@@ -227,6 +239,23 @@ class SystemTests(unittest.TestCase):
         with patch.dict("os.environ", env), patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(raw).encode())):
             with self.assertRaises(ProtocolError):
                 APIClient().complete([])
+
+    def test_truncated_or_empty_api_output_stops_without_retries_and_counts_usage(self):
+        env = {"LLM_API_KEY": "test-not-a-real-key", "LLM_MODEL": "test-model", "LLM_THINKING": "disabled"}
+        for content, finish in [("", "length"), ('{"action":', "length"), ("", "stop")]:
+            with self.subTest(content=content, finish=finish):
+                raw = {"choices": [{"message": {"content": content}, "finish_reason": finish}],
+                       "usage": {"total_tokens": 123}}
+                with patch.dict("os.environ", env), patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(raw).encode())) as call:
+                    client = APIClient()
+                    with self.assertRaises(AgentFailure) as failure:
+                        Agent(self.retrieval, client, self.config).run("Who founded the archive?")
+                self.assertEqual(call.call_count, 1)
+                self.assertEqual(failure.exception.state.total_tokens, 123)
+                self.assertEqual(failure.exception.state.trajectory[-1]["type"], "llm_error")
+                self.assertEqual(failure.exception.state.trajectory[-1]["response"], raw)
+                sent = json.loads(call.call_args.args[0].data)
+                self.assertEqual(sent["thinking"], {"type": "disabled"})
 
     def test_resume_blocks_inflight_question_with_unknown_usage(self):
         file = self.root / "questions.jsonl"

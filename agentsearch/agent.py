@@ -109,6 +109,7 @@ class Agent:
         state.event("run_start", id=str(qid), question=question, mode=mode,
                     llm_model=getattr(self.client, "model", "offline-test"),
                     llm_base_url=getattr(self.client, "base", "offline-test"),
+                    llm_thinking=getattr(self.client, "thinking", ""),
                     real_api=bool(self.client.is_real), config=self.config,
                     corpus=self.retrieval.manifest, skill_catalog=self.skills.metadata() if self.config["skills_enabled"] else [])
         if mode == "single":

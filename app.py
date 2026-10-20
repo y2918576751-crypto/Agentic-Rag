@@ -11,7 +11,22 @@ from agentsearch.retrieval import Retrieval
 st.set_page_config(page_title="Skill-Augmented Search", layout="wide")
 st.title("Skill-Augmented Search Agent")
 st.caption("Answers are based on the indexed fixed document collection.")
-config_path = st.sidebar.text_input("Configuration file", str(ROOT / "config.json"))
+default_config = ROOT / "config.json"
+manifest_path = ROOT / "indexes" / "manifest.json"
+try:
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if "sparse" in manifest.get("categories", []) and any(
+        not (ROOT / "indexes" / f"{method}.json").exists()
+        for method in ("dense", "instruction")
+    ):
+        default_config = ROOT / "configs" / "sparse.json"
+        st.sidebar.info(
+            "检测到全量 BM25 索引已就绪。当前仍缺少 dense 和 instruction 向量索引，"
+            "所以界面默认使用 BM25。完成向量索引后，可手动切回 config.json 使用混合检索。"
+        )
+except (OSError, json.JSONDecodeError):
+    pass
+config_path = st.sidebar.text_input("Configuration file", str(default_config))
 question = st.text_area("Question")
 if st.button("Search", type="primary", disabled=not question.strip()):
     retrieval = None

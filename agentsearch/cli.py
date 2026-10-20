@@ -48,6 +48,8 @@ def run_batch(agent, input_file, output_file, resume=False, expected_count=100):
                 raise ValueError("Checkpoint model mismatch")
             if start.get("llm_base_url") != getattr(agent.client, "base", "offline-test"):
                 raise ValueError("Checkpoint API endpoint mismatch")
+            if start.get("llm_thinking", "") != getattr(agent.client, "thinking", ""):
+                raise ValueError("Checkpoint thinking mode mismatch")
             done[row["id"]] = row
     if inflight_path.exists():
         inflight = json.loads(inflight_path.read_text(encoding="utf-8"))
